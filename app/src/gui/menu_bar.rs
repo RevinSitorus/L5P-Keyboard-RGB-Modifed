@@ -7,18 +7,13 @@ use egui_file::FileDialog;
 use egui_notify::Toasts;
 use std::{path::PathBuf, time::Duration};
 
-use crate::{
-    gui::modals,
-    manager::{custom_effect::CustomEffect, profile::Profile},
-    DENY_HIDING,
-};
+use crate::{gui::modals, manager::profile::Profile, DENY_HIDING};
 
-use super::{GuiMessage, LoadedEffect};
+use super::GuiMessage;
 
 pub struct MenuBarState {
     gui_sender: Sender<GuiMessage>,
     load_profile_dialog: FileDialog,
-    load_effect_dialog: FileDialog,
     save_profile_dialog: FileDialog,
 }
 
@@ -27,16 +22,14 @@ impl MenuBarState {
         Self {
             gui_sender,
             load_profile_dialog: FileDialog::open_file(None).default_size(Vec2::splat(300.0)),
-            load_effect_dialog: FileDialog::open_file(None).default_size(Vec2::splat(300.0)),
             save_profile_dialog: FileDialog::save_file(None).default_size(Vec2::splat(300.0)),
         }
     }
 
-    pub fn show(&mut self, ctx: &Context, ui: &mut egui::Ui, current_profile: &mut Profile, current_effect: &mut LoadedEffect, changed: &mut bool, toasts: &mut Toasts) {
+    pub fn show(&mut self, ctx: &Context, ui: &mut egui::Ui, current_profile: &mut Profile, changed: &mut bool, toasts: &mut Toasts) {
         self.show_menu(ctx, ui, toasts);
         self.handle_load_profile(ctx, current_profile, changed, toasts);
         self.handle_save_profile(ctx, current_profile, toasts);
-        self.handle_load_effect(ctx, current_effect, changed, toasts);
     }
 
     fn handle_load_profile(&mut self, ctx: &Context, current_profile: &mut Profile, changed: &mut bool, toasts: &mut Toasts) {
@@ -67,27 +60,9 @@ impl MenuBarState {
         }
     }
 
-    fn handle_load_effect(&mut self, ctx: &Context, current_effect: &mut LoadedEffect, changed: &mut bool, toasts: &mut Toasts) {
-        if self.load_effect_dialog.show(ctx).selected() {
-            if let Some(path) = self.load_effect_dialog.path().map(|p| p.to_path_buf()) {
-                match CustomEffect::from_file(&path) {
-                    Ok(effect) => {
-                        *current_effect = LoadedEffect::queued(effect);
-                        *changed = true;
-                    }
-                    Err(_) => {
-                        toasts.error("Could not load custom effect.").duration(Some(Duration::from_millis(5000))).closable(true);
-                    }
-                }
-                self.update_paths(path);
-            }
-        }
-    }
-
     fn update_paths(&mut self, path: PathBuf) {
         let mut save_paths = |path: PathBuf| {
             self.load_profile_dialog.set_path(path.clone());
-            self.load_effect_dialog.set_path(path.clone());
             self.save_profile_dialog.set_path(path);
         };
 
@@ -113,12 +88,6 @@ impl MenuBarState {
                 }
                 if ui.button("Save").clicked() {
                     self.save_profile_dialog.open();
-                }
-            });
-
-            ui.menu_button("Effect", |ui| {
-                if ui.button("Open").clicked() {
-                    self.load_effect_dialog.open();
                 }
             });
 

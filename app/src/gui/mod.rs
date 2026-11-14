@@ -14,8 +14,10 @@ use eframe::{
     CreationContext,
 };
 
+use egui_file::FileDialog;
 use egui_notify::Toasts;
 use legion_input::{EventKind, Key};
+use std::{path::PathBuf, time::Duration};
 use strum::IntoEnumIterator;
 use tray_icon::menu::MenuEvent;
 
@@ -50,6 +52,7 @@ pub struct App {
 
     menu_bar: MenuBarState,
     saved_items: SavedItems,
+    load_effect_dialog: FileDialog,
     global_rgb: [u8; 3],
     theme: Theme,
     toasts: Toasts,
@@ -137,6 +140,7 @@ impl App {
 
             menu_bar: MenuBarState::new(gui_tx_c),
             saved_items: SavedItems::new(profiles, effects),
+            load_effect_dialog: FileDialog::open_file(None).default_size(Vec2::splat(300.0)),
             global_rgb: [0; 3],
             theme: Theme::default(),
             toasts: Toasts::default(),
@@ -240,8 +244,7 @@ impl eframe::App for App {
         }
 
         TopBottomPanel::top("top-panel").show(ctx, |ui| {
-            self.menu_bar
-                .show(ctx, ui, &mut self.current_profile, &mut self.loaded_effect, &mut self.state_changed, &mut self.toasts);
+            self.menu_bar.show(ctx, ui, &mut self.current_profile, &mut self.state_changed, &mut self.toasts);
         });
 
         CentralPanel::default()
@@ -377,11 +380,76 @@ impl App {
                                     self.loaded_effect.state = State::None;
                                 }
                             }
+
+                            ui.separator();
+                            ui.heading("Stored effects");
+
+                            if self.saved_items.custom_effects.is_empty() {
+                                ui.label("No stored effects");
+                            } else {
+                                let mut remove_index = None;
+                                for (index, effect) in self.saved_items.custom_effects.iter().enumerate() {
+                                    let name = effect.name.as_deref().unwrap_or("Unnamed").to_owned();
+                                    ui.horizontal(|ui| {
+                                        if ui.selectable_label(self.loaded_effect.effect == *effect && !self.loaded_effect.is_none(), &name).clicked() {
+                                            self.loaded_effect.effect = effect.clone();
+                                            self.loaded_effect.state = State::Queued;
+                                            self.state_changed = true;
+                                        }
+                                        if ui.small_button("×").on_hover_text("Remove stored effect").clicked() {
+                                            remove_index = Some(index);
+                                        }
+                                    });
+                                }
+                                if let Some(index) = remove_index {
+                                    let removed = self.saved_items.custom_effects.remove(index);
+                                    if self.loaded_effect.effect == removed {
+                                        self.loaded_effect.state = State::None;
+                                        self.state_changed = true;
+                                    }
+                                }
+                            }
+
+                            if ui.button("Add from JSON").clicked() {
+                                self.load_effect_dialog.open();
+                            }
                         });
                     });
                 });
             });
+
+            self.handle_load_effect(ctx);
         });
+    }
+
+    fn handle_load_effect(&mut self, ctx: &Context) {
+        if self.load_effect_dialog.show(ctx).selected() {
+            if let Some(path) = self.load_effect_dialog.path().map(|path| path.to_path_buf()) {
+                match CustomEffect::from_file(&path) {
+                    Ok(mut effect) => {
+                        if effect.name.is_none() {
+                            effect.name = path.file_stem().and_then(|name| name.to_str()).map(str::to_owned);
+                        }
+                        self.loaded_effect = LoadedEffect::queued(effect.clone());
+                        self.saved_items.custom_effects.push(effect);
+                        self.state_changed = true;
+                    }
+                    Err(_) => {
+                        self.toasts.error("Could not load custom effect.").duration(Some(Duration::from_millis(5000))).closable(true);
+                    }
+                }
+                self.update_dialog_path(path);
+            }
+        }
+    }
+
+    fn update_dialog_path(&mut self, path: PathBuf) {
+        if path.exists() {
+            let path = if path.is_file() { path.parent().map(PathBuf::from) } else { Some(path) };
+            if let Some(path) = path {
+                self.load_effect_dialog.set_path(path);
+            }
+        }
     }
 
     fn show_effect_ui(&mut self, ui: &mut eframe::egui::Ui) {

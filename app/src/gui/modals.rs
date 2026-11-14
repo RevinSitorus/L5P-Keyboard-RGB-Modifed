@@ -79,11 +79,11 @@ pub fn about(ctx: &Context) -> Modal {
     modal.show(|ui| {
         modal.title(ui, "About");
         modal.frame(ui, |ui| {
-            modal.body(ui, "A program made by 4JX.");
+            modal.body(ui, "A program made by 4JX. Modified by RevinSitorus.");
             // Try to match the modal's overall margin
             ui.vertical(|ui| {
                 Frame::NONE.inner_margin(ModalStyle::default().body_margin).show(ui, |ui| {
-                    ui.label("Something's not working?");
+                    ui.label("I only modify it. Request are refering to original version");
                     let url = "https://github.com/4JX/L5P-Keyboard-RGB/issues";
                     if ui.link(url).clicked() {
                         let _ = open::that(url);
