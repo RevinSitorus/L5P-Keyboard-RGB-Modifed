@@ -3,7 +3,7 @@
 # Legion RGB Control <!-- omit in toc -->
 
 <div align="center">
-<img style="max-width: 500px; width: 100%;" src="./Preview.png" alt="logo">
+<img style="max-width: 500px; width: 100%;" src="./Preview2.png" alt="logo">
 
 </div>
 
